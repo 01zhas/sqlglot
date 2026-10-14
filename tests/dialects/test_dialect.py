@@ -1407,7 +1407,6 @@ class TestDialect(Validator):
                 write={
                     dialect: f"{unit}(x)"
                     for dialect in (
-                        "bigquery",
                         "drill",
                         "duckdb",
                         "mysql",

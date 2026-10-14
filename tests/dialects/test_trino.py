@@ -7,6 +7,123 @@ from tests.dialects.test_dialect import Validator
 class TestTrino(Validator):
     dialect = "trino"
 
+    def test_bigquery_functions(self):
+        for trino_fn, part in (
+            ("YEAR", "YEAR"),
+            ("MONTH", "MONTH"),
+            ("QUARTER", "QUARTER"),
+            ("HOUR", "HOUR"),
+            ("DAY", "DAY"),
+            ("DAY_OF_MONTH", "DAY"),
+            ("DAY_OF_YEAR", "DAYOFYEAR"),
+            ("WEEK_OF_YEAR", "ISOWEEK"),
+        ):
+            with self.subTest(trino_fn):
+                self.validate_all(
+                    f"{trino_fn}(x)",
+                    write={"bigquery": f"EXTRACT({part} FROM x)"},
+                )
+
+        # Trino's day_of_week is Monday=1..Sunday=7, BigQuery's DAYOFWEEK is Sunday=1..Saturday=7
+        self.validate_all(
+            "DAY_OF_WEEK(x) * 2",
+            write={"bigquery": "(MOD(EXTRACT(DAYOFWEEK FROM x) + 5, 7) + 1) * 2"},
+        )
+        self.validate_all(
+            "CAST(FROM_BASE(SUBSTR(TO_HEX(MD5(CAST(CAST(col AS VARCHAR) AS VARBINARY))),1,14),16) AS DECIMAL(38, 0))",
+            write={
+                "bigquery": "CAST(CAST(REGEXP_REPLACE(SUBSTRING(UPPER(TO_HEX(MD5(CAST(CAST(col AS STRING) AS BYTES)))), 1, 14), '^([+-]?)', '\\\\10x') AS INT64) AS BIGNUMERIC)",
+            },
+        )
+        self.validate_all(
+            "FROM_BASE('-ff', 16)",
+            write={"bigquery": "CAST(REGEXP_REPLACE('-ff', '^([+-]?)', '\\\\10x') AS INT64)"},
+        )
+        self.validate_all("FROM_BASE(s, 2)", write={"bigquery": UnsupportedError})
+        self.validate_all(
+            "APPROX_PERCENTILE(col, 1, 0.5, 0.001)",
+            write={"bigquery": "APPROX_QUANTILES(col, 2)[1]"},
+        )
+        # APPROX_QUANTILES takes at most 100,000 buckets
+        self.validate_all(
+            "APPROX_PERCENTILE(col, 0.00001)",
+            write={"bigquery": "APPROX_QUANTILES(col, 100000)[1]"},
+        )
+        self.validate_all(
+            "APPROX_PERCENTILE(col, 0.95)",
+            write={"bigquery": "APPROX_QUANTILES(col, 20)[19]"},
+        )
+        for sql in (
+            "APPROX_PERCENTILE(col, 2, 0.5)",
+            "APPROX_PERCENTILE(col, q)",
+            "APPROX_PERCENTILE(col, -0.5)",
+            "APPROX_PERCENTILE(col, 1.5)",
+            "APPROX_PERCENTILE(col, 0.000001)",
+            "APPROX_PERCENTILE(col, 1e-1000000)",
+            "APPROX_PERCENTILE(col, 1e1000000000)",
+            "APPROX_PERCENTILE(col, 0.50000000000000000000000000001)",
+        ):
+            with self.subTest(sql):
+                self.validate_all(sql, write={"bigquery": UnsupportedError})
+        self.validate_all(
+            "ARRAY_JOIN(ARRAY_SORT(ARRAY_DISTINCT(ARRAY_AGG(col))),'|RECORD|')",
+            write={
+                "bigquery": "ARRAY_TO_STRING(ARRAY_AGG(DISTINCT col ORDER BY col), '|RECORD|')",
+            },
+        )
+        # BigQuery cannot UNNEST an aggregate, so these fold into the ARRAY_AGG
+        self.validate_all(
+            "ARRAY_DISTINCT(ARRAY_AGG(col))",
+            write={"bigquery": "ARRAY_AGG(DISTINCT col)"},
+        )
+        self.validate_all(
+            "ARRAY_SORT(ARRAY_AGG(DISTINCT col))",
+            write={"bigquery": "ARRAY_AGG(DISTINCT col ORDER BY col)"},
+        )
+        self.assertEqual(
+            parse_one("ARRAY_SORT(ARRAY_AGG(col))", read="trino").sql(
+                "bigquery", unsupported_level=ErrorLevel.RAISE
+            ),
+            "ARRAY_AGG(col ORDER BY col IS NULL, col)",
+        )
+        # Trino sorts NULLs last, which BigQuery can't do in an ascending aggregate ORDER BY
+        self.validate_all(
+            "ARRAY_SORT(ARRAY_AGG(DISTINCT col))", write={"bigquery": UnsupportedError}
+        )
+        for sql in (
+            "ARRAY_SORT(ARRAY_AGG(col ORDER BY y))",
+            "ARRAY_SORT(ARRAY_AGG(col), (a, b) -> 0)",
+            "ARRAY_SORT(arr)",
+            "ARRAY_DISTINCT(arr)",
+        ):
+            with (
+                self.subTest(sql),
+                self.assertRaisesRegex(UnsupportedError, "only supported on an ARRAY_AGG"),
+            ):
+                parse_one(sql, read="trino").sql("bigquery", unsupported_level=ErrorLevel.RAISE)
+
+    def test_decimal_beyond_numeric_range(self):
+        # BigQuery's NUMERIC holds at most 29 integer digits and 9 fractional digits
+        self.validate_all(
+            "CAST(x AS DECIMAL(30, 0))",
+            write={"bigquery": "CAST(x AS BIGNUMERIC)"},
+        )
+        self.validate_all(
+            "CAST(x AS DECIMAL(29, 0))",
+            write={"bigquery": "CAST(x AS NUMERIC)"},
+        )
+        self.validate_all(
+            "CAST(x AS DECIMAL(20, 10))",
+            write={"bigquery": "CAST(x AS BIGNUMERIC)"},
+        )
+        for sql in ("CAST(x AS DECIMAL(p, 0))", "CAST(x AS DECIMAL(38, s))"):
+            with self.subTest(sql):
+                self.validate_all(sql, write={"bigquery": "CAST(x AS NUMERIC)"})
+        self.validate_all(
+            "CAST(x AS DECIMAL(38))",
+            write={"bigquery": "CAST(x AS BIGNUMERIC)"},
+        )
+
     def test_fetch(self):
         self.validate_identity(
             "SELECT * FROM t ORDER BY x FETCH FIRST 1 ROW ONLY",
