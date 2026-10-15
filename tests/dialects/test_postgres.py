@@ -1,4 +1,4 @@
-from sqlglot import ParseError, UnsupportedError, exp, parse_one, transpile
+from sqlglot import ErrorLevel, ParseError, UnsupportedError, exp, parse_one, transpile
 from sqlglot.helper import logger as helper_logger
 from sqlglot.optimizer.annotate_types import annotate_types
 from tests.dialects.test_dialect import Validator
@@ -538,6 +538,10 @@ FROM json_data, field_ids""",
                 "postgres": "SELECT CURRENT_TIMESTAMP - MAKE_INTERVAL(years => 1, months => 2, days => 3)",
             },
         )
+        interval = parse_one("INTERVAL '1' QUARTER")
+        interval.set("this", exp.Literal.number("1e1000000000"))
+        with self.assertRaises(UnsupportedError):
+            interval.sql("postgres", unsupported_level=ErrorLevel.RAISE)
         self.validate_all(
             "SELECT CURRENT_TIMESTAMP + INTERVAL '-3 MONTH'",
             read={
