@@ -413,3 +413,17 @@ class StarRocksGenerator(MySQLGenerator):
         kind = expression.text("kind").upper()
         boundary = exp.var("CEIL" if kind == "END" else "FLOOR") if kind else None
         return self.func("TIME_SLICE", expression.this, interval, boundary)
+
+    def quantile_sql(self, expression: exp.Quantile) -> str:
+        quantile = expression.args.get("quantile")
+        if isinstance(quantile, exp.Array):
+            return self.sql(
+                exp.array(
+                    *(
+                        exp.PercentileCont(this=expression.this.copy(), expression=q.copy())
+                        for q in quantile.expressions
+                    ),
+                    copy=False,
+                )
+            )
+        return self.func("PERCENTILE_CONT", expression.this, quantile)

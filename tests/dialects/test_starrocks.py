@@ -602,3 +602,18 @@ class TestStarrocks(Validator):
         self.validate_identity(
             "SELECT DATE_DIFF('DAY', CAST('2026-03-11 01:00:00' AS DATETIME), CAST('2026-03-10 23:00:00' AS DATETIME))"
         )
+
+    def test_exact_percentiles(self):
+        self.validate_all(
+            "SELECT PERCENTILE_CONT(id, 0.5) FROM t",
+            read={"spark": "SELECT PERCENTILE(id, 0.5) FROM t"},
+            write={"starrocks": "SELECT PERCENTILE_CONT(id, 0.5) FROM t"},
+        )
+        self.validate_all(
+            "SELECT [PERCENTILE_CONT(id, 0.2), PERCENTILE_CONT(id, 0.5)] FROM t",
+            read={"spark": "SELECT PERCENTILE(id, ARRAY(0.2, 0.5)) FROM t"},
+            write={
+                "starrocks": "SELECT [PERCENTILE_CONT(id, 0.2), PERCENTILE_CONT(id, 0.5)] FROM t"
+            },
+        )
+        self.validate_identity("SELECT PERCENTILE_CONT(id, 0.5) FROM t")
