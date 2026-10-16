@@ -602,3 +602,13 @@ class TestStarrocks(Validator):
         self.validate_identity(
             "SELECT DATE_DIFF('DAY', CAST('2026-03-11 01:00:00' AS DATETIME), CAST('2026-03-10 23:00:00' AS DATETIME))"
         )
+
+    def test_pivot(self):
+        self.validate_identity("SELECT * FROM t PIVOT(SUM(v) FOR k IN ('a', 'b'))")
+        self.validate_identity(
+            "SELECT * FROM t PIVOT(SUM(v) AS total, MAX(v) AS peak FOR k IN ('a' AS a, 'b' AS b))"
+        )
+        with self.assertRaises(UnsupportedError):
+            self.parse_one("SELECT * FROM t UNPIVOT(v FOR k IN (a, b))").sql(
+                "starrocks", unsupported_level=ErrorLevel.RAISE
+            )

@@ -6,6 +6,7 @@ from sqlglot import exp, transforms
 from sqlglot.dialects.dialect import (
     approx_count_distinct_sql,
     arrow_json_extract_sql,
+    no_pivot_sql,
     rename_func,
     weekstart_unit_to_str,
     inline_array_sql,
@@ -103,7 +104,7 @@ class StarRocksGenerator(MySQLGenerator):
         **{
             k: v
             for k, v in MySQLGenerator.TRANSFORMS.items()
-            if k not in (exp.DateDiff, exp.DateTrunc, exp.Trim)
+            if k not in (exp.DateDiff, exp.DateTrunc, exp.Trim, exp.Pivot)
         },
         exp.ArgMax: rename_func("MAX_BY"),
         exp.ArgMin: rename_func("MIN_BY"),
@@ -413,3 +414,8 @@ class StarRocksGenerator(MySQLGenerator):
         kind = expression.text("kind").upper()
         boundary = exp.var("CEIL" if kind == "END" else "FLOOR") if kind else None
         return self.func("TIME_SLICE", expression.this, interval, boundary)
+
+    def pivot_sql(self, expression: exp.Pivot) -> str:
+        if expression.unpivot:
+            return no_pivot_sql(self, expression)
+        return super().pivot_sql(expression)
