@@ -1010,6 +1010,7 @@ class Table(Expression, Selectable):
         "when": False,
         "only": False,
         "partition": False,
+        "tablets": False,
         "changes": False,
         "rows_from": False,
         "sample": False,
