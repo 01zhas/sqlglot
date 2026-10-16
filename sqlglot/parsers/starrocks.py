@@ -243,3 +243,30 @@ class StarRocksParser(MySQLParser):
                 mode=mode,
             )
         )
+
+    def _parse_bracket(self, this: exp.Expr | None = None) -> exp.Expr | None:
+        is_map = (
+            isinstance(this, exp.Column) and not this.table and this.name.upper() == "MAP"
+        ) or (isinstance(this, exp.DataType) and this.is_type(exp.DType.MAP))
+        if not is_map or not self._match(TokenType.L_BRACE):
+            return super()._parse_bracket(this)
+
+        def parse_entry() -> exp.Expr:
+            key = self._parse_disjunction()
+            if not self._match(TokenType.COLON):
+                self.raise_error("Expected : in MAP constructor")
+            return self.expression(exp.PropertyEQ(this=key, expression=self._parse_disjunction()))
+
+        entries = self._parse_csv(parse_entry) if self._curr.token_type != TokenType.R_BRACE else []
+        if not self._match(TokenType.R_BRACE):
+            self.raise_error("Expected }")
+
+        result: exp.Expr = self.expression(
+            exp.Map(
+                keys=exp.array(*(e.this for e in entries), copy=False),
+                values=exp.array(*(e.expression for e in entries), copy=False),
+            )
+        )
+        if isinstance(this, exp.DataType):
+            result = exp.cast(result, this, copy=False)
+        return self._parse_bracket(result)

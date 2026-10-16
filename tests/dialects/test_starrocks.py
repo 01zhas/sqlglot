@@ -602,3 +602,20 @@ class TestStarrocks(Validator):
         self.validate_identity(
             "SELECT DATE_DIFF('DAY', CAST('2026-03-11 01:00:00' AS DATETIME), CAST('2026-03-10 23:00:00' AS DATETIME))"
         )
+
+    def test_map_literal(self):
+        for sql, expected in (
+            ("MAP{'a': 1}['a']", "MAP('a', 1)['a']"),
+            ("MAP{a: 1, b: 2}", "MAP(a, 1, b, 2)"),
+            ("MAP{1 + 1: 3}", "MAP(1 + 1, 3)"),
+            ("MAP{1: MAP{2: 3}}[1][2]", "MAP(1, MAP(2, 3))[1][2]"),
+            ("MAP{1: NULL}", "MAP(1, NULL)"),
+            ("MAP{}", "MAP()"),
+            ("MAP<INT, INT>{'12': '100'}", "CAST(MAP('12', '100') AS MAP<INT, INT>)"),
+        ):
+            with self.subTest(sql=sql):
+                self.validate_identity(f"SELECT {sql}", f"SELECT {expected}")
+        self.validate_all(
+            "SELECT MAP{'a': 1}['a']",
+            write={"duckdb": "SELECT MAP(['a'], [1])['a']"},
+        )
