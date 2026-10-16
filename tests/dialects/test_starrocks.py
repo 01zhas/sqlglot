@@ -1,4 +1,4 @@
-from sqlglot import exp
+from sqlglot import exp, parse_one
 from sqlglot.errors import ErrorLevel, ParseError, UnsupportedError
 from tests.dialects.test_dialect import Validator
 
@@ -602,3 +602,14 @@ class TestStarrocks(Validator):
         self.validate_identity(
             "SELECT DATE_DIFF('DAY', CAST('2026-03-11 01:00:00' AS DATETIME), CAST('2026-03-10 23:00:00' AS DATETIME))"
         )
+
+    def test_oracle_add_months_end_of_month(self):
+        source = parse_one("SELECT ADD_MONTHS(d, 1) FROM t", read="oracle")
+        add = source.find(exp.AddMonths)
+        self.assertIsNotNone(add)
+        self.assertTrue(add.args.get("preserve_end_of_month"))
+        generated = source.sql("starrocks")
+        self.assertIn("CASE WHEN", generated)
+        self.assertIn("LAST_DAY", generated)
+        self.assertIn("DATE_ADD", generated)
+        self.validate_identity("SELECT ADD_MONTHS(d, 1) FROM t")

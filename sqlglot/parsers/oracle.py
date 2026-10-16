@@ -35,6 +35,9 @@ class OracleParser(parser.Parser):
     FUNCTIONS = {
         **{k: v for k, v in parser.Parser.FUNCTIONS.items() if k != "TO_BOOLEAN"},
         "CONVERT": exp.ConvertToCharset.from_arg_list,
+        "ADD_MONTHS": lambda args: exp.AddMonths(
+            this=seq_get(args, 0), expression=seq_get(args, 1), preserve_end_of_month=True
+        ),
         "L2_DISTANCE": exp.EuclideanDistance.from_arg_list,
         "NVL": lambda args: build_coalesce(args, is_nvl=True),
         "SQUARE": lambda args: exp.Pow(this=seq_get(args, 0), expression=exp.Literal.number(2)),
