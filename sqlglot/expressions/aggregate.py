@@ -245,6 +245,7 @@ class ApproxQuantile(Quantile):
         "accuracy": False,
         "weight": False,
         "error_tolerance": False,
+        "compression": False,
     }
 
 

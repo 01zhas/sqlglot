@@ -61,6 +61,9 @@ class StarRocksParser(MySQLParser):
         ),
         "ARRAY_FLATTEN": exp.Flatten.from_arg_list,
         "LIKE": build_like(exp.Like),
+        "PERCENTILE_APPROX": lambda args: exp.ApproxQuantile(
+            this=seq_get(args, 0), quantile=seq_get(args, 1), compression=seq_get(args, 2)
+        ),
         "REGEXP": exp.RegexpLike.from_arg_list,
         # StarRocks' MAP() is a variadic constructor: MAP(k1, v1, k2, v2, ...)
         # https://docs.starrocks.io/docs/sql-reference/sql-functions/map-functions/map/

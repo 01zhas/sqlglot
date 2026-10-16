@@ -1,4 +1,4 @@
-from sqlglot import exp
+from sqlglot import exp, parse_one
 from sqlglot.errors import ErrorLevel, ParseError, UnsupportedError
 from tests.dialects.test_dialect import Validator
 
@@ -602,3 +602,15 @@ class TestStarrocks(Validator):
         self.validate_identity(
             "SELECT DATE_DIFF('DAY', CAST('2026-03-11 01:00:00' AS DATETIME), CAST('2026-03-10 23:00:00' AS DATETIME))"
         )
+
+    def test_approximate_percentiles(self):
+        self.validate_identity("SELECT PERCENTILE_APPROX(id, [0.2, 0.5], 4096) FROM t")
+        self.validate_all(
+            "SELECT PERCENTILE_APPROX(id, [0.2, 0.5]) FROM t",
+            read={"spark": "SELECT PERCENTILE_APPROX(id, ARRAY(0.2, 0.5)) FROM t"},
+            write={"starrocks": "SELECT PERCENTILE_APPROX(id, [0.2, 0.5]) FROM t"},
+        )
+        with self.assertRaises(UnsupportedError):
+            parse_one("SELECT PERCENTILE_APPROX(id, ARRAY(0.5), 5) FROM t", read="spark").sql(
+                "starrocks", unsupported_level=ErrorLevel.RAISE
+            )

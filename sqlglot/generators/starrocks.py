@@ -12,7 +12,7 @@ from sqlglot.dialects.dialect import (
     property_sql,
     var_map_sql,
 )
-from sqlglot.generator import Generator
+from sqlglot.generator import Generator, unsupported_args
 from sqlglot.generators.mysql import MySQLGenerator
 
 
@@ -413,3 +413,12 @@ class StarRocksGenerator(MySQLGenerator):
         kind = expression.text("kind").upper()
         boundary = exp.var("CEIL" if kind == "END" else "FLOOR") if kind else None
         return self.func("TIME_SLICE", expression.this, interval, boundary)
+
+    @unsupported_args("accuracy", "weight", "error_tolerance")
+    def approxquantile_sql(self, expression: exp.ApproxQuantile) -> str:
+        return self.func(
+            "PERCENTILE_APPROX",
+            expression.this,
+            expression.args.get("quantile"),
+            expression.args.get("compression"),
+        )
