@@ -35,6 +35,40 @@ class TestStarrocks(Validator):
         self.validate_identity("SELECT t1.id FROM t1 LEFT ANTI JOIN t2 ON t1.id = t2.id")
         self.validate_identity("SELECT t1.id FROM t1 LEFT SEMI JOIN t2 ON t1.id = t2.id")
 
+    def test_array_filter_lambda(self):
+        expression = self.validate_identity("SELECT ARRAY_FILTER(x -> x > 1, [1, 2, 3])")
+        array_filter = expression.find(exp.ArrayFilter)
+        self.assertIsInstance(array_filter.this, exp.Array)
+        self.assertIsInstance(array_filter.expression, exp.Lambda)
+
+        self.validate_all(
+            "SELECT ARRAY_FILTER(x -> x > 1, [1, 2, 3])",
+            read={
+                "spark": "SELECT FILTER(ARRAY(1, 2, 3), x -> x > 1)",
+                "clickhouse": "SELECT arrayFilter(x -> x > 1, [1, 2, 3])",
+                "duckdb": "SELECT LIST_FILTER([1, 2, 3], x -> x > 1)",
+            },
+            write={
+                "starrocks": "SELECT ARRAY_FILTER(x -> x > 1, [1, 2, 3])",
+                "duckdb": "SELECT LIST_FILTER([1, 2, 3], LAMBDA x : x > 1)",
+                "clickhouse": "SELECT arrayFilter(x -> x > 1, [1, 2, 3])",
+                "spark": "SELECT FILTER(ARRAY(1, 2, 3), x -> x > 1)",
+            },
+        )
+        self.validate_identity(
+            "SELECT ARRAY_FILTER(x -> x IS NOT NULL, [1, NULL, 3])",
+            "SELECT ARRAY_FILTER(x -> NOT x IS NULL, [1, NULL, 3])",
+        )
+        self.validate_identity("SELECT ARRAY_FILTER(x -> x > 1, [])")
+        self.validate_identity("SELECT ARRAY_FILTER(values_array, mask_array)")
+        self.validate_identity("SELECT ARRAY_FILTER([1, 2, 3], NULL)")
+        self.validate_identity("SELECT ARRAY_FILTER((x, y) -> x < y, [1, 2, NULL], [4, 5, 6])")
+
+        with self.assertRaises(UnsupportedError):
+            parse_one("SELECT FILTER(a, (x, i) -> i > 0)", read="spark").sql(
+                "starrocks", unsupported_level=ErrorLevel.RAISE
+            )
+
     def test_min_max_by(self):
         # StarRocks has MIN_BY/MAX_BY, but no ARG_MIN/ARG_MAX
         # https://docs.starrocks.io/docs/sql-reference/sql-functions/aggregate-functions/min_by/

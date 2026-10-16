@@ -113,7 +113,6 @@ class StarRocksGenerator(MySQLGenerator):
         # a <@ b (ArrayContainedBy) is equivalent to ARRAY_CONTAINS_ALL(b, a)
         exp.ArrayContainedBy: lambda self, e: self.func("ARRAY_CONTAINS_ALL", e.expression, e.this),
         exp.ArrayContainsAll: rename_func("ARRAY_CONTAINS_ALL"),
-        exp.ArrayFilter: rename_func("ARRAY_FILTER"),
         exp.ArrayToString: rename_func("ARRAY_JOIN"),
         exp.ApproxDistinct: approx_count_distinct_sql,
         exp.CurrentVersion: lambda *_: "CURRENT_VERSION()",
@@ -301,6 +300,16 @@ class StarRocksGenerator(MySQLGenerator):
         "where",
         "with",
     }
+
+    def arrayfilter_sql(self, expression: exp.ArrayFilter) -> str:
+        predicate = expression.expression
+        if isinstance(predicate, exp.Lambda):
+            if len(predicate.expressions) != 1:
+                self.unsupported(
+                    "StarRocks ARRAY_FILTER with one array requires a single-parameter lambda"
+                )
+            return self.func("ARRAY_FILTER", predicate, expression.this)
+        return self.func("ARRAY_FILTER", expression.this, predicate)
 
     def ignorenulls_sql(self, expression: exp.IgnoreNulls) -> str:
         # IGNORE NULLS follows the first argument, e.g. LAG(x IGNORE NULLS, 1, 0)

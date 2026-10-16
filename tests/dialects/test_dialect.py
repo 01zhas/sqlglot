@@ -3058,7 +3058,7 @@ PIVOT(SUM(x) FOR x IN (1))""",
             "FILTER(the_array, x -> x > 0)",
             write={
                 "presto": "FILTER(the_array, x -> x > 0)",
-                "starrocks": "ARRAY_FILTER(the_array, x -> x > 0)",
+                "starrocks": "ARRAY_FILTER(x -> x > 0, the_array)",
             },
         )
         self.validate_all(

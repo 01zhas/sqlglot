@@ -44,6 +44,14 @@ def _build_time_slice(args: list[exp.Expr]) -> exp.TimeSlice | None:
     return time_slice
 
 
+def _build_array_filter(args: list[exp.Expr]) -> exp.ArrayFilter | exp.Anonymous:
+    if isinstance(seq_get(args, 0), exp.Lambda):
+        if len(args) > 2:
+            return exp.Anonymous(this="ARRAY_FILTER", expressions=args)
+        return exp.ArrayFilter(this=seq_get(args, 1), expression=args[0])
+    return exp.ArrayFilter.from_arg_list(args)
+
+
 class StarRocksParser(MySQLParser):
     IDENTIFY_PIVOT_STRINGS = True
     PIVOT_COLUMN_NAMING = "agg_name_if_multiple"
@@ -60,6 +68,7 @@ class StarRocksParser(MySQLParser):
 
     FUNCTIONS = {
         **MySQLParser.FUNCTIONS,
+        "ARRAY_FILTER": _build_array_filter,
         "ADDDATE": build_date_delta_with_interval(exp.DateAdd, default_unit="DAY"),
         "DATE_ADD": build_date_delta_with_interval(exp.DateAdd, default_unit="DAY"),
         "DATE_SUB": build_date_delta_with_interval(exp.DateSub, default_unit="DAY"),
