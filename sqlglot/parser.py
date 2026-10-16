@@ -1051,6 +1051,7 @@ class Parser:
     }
 
     JOIN_HINTS: t.ClassVar[set[str]] = set()
+    JOIN_HINTS_IN_BRACKETS: t.ClassVar = False
 
     # Tokens that unambiguously end a table reference on the fast path
     TABLE_TERMINATORS: t.ClassVar[frozenset] = frozenset(
@@ -4806,6 +4807,11 @@ class Parser:
 
         if not skip_join_token and not join and not outer_apply and not cross_apply:
             return None
+
+        if self.JOIN_HINTS_IN_BRACKETS and self._match(TokenType.L_BRACKET):
+            hint = ", ".join(h.name.upper() for h in self._parse_csv(self._parse_var))
+            if not self._match(TokenType.R_BRACKET):
+                self.raise_error("Expected ] after join hint")
 
         kwargs: dict[str, t.Any] = {
             "this": self._parse_table(parse_bracket=parse_bracket, alias_tokens=alias_tokens)

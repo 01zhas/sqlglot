@@ -63,6 +63,8 @@ class StarRocksGenerator(MySQLGenerator):
     UPDATE_STATEMENT_SUPPORTS_FROM = True
     INSERT_OVERWRITE = " OVERWRITE"
     CAST_TO_INT_ROUNDS = False
+    JOIN_HINTS = True
+    JOIN_HINTS_IN_BRACKETS = True
 
     # StarRocks doesn't support "IS TRUE/FALSE" syntax.
     IS_BOOL_ALLOWED = False

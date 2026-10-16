@@ -602,3 +602,18 @@ class TestStarrocks(Validator):
         self.validate_identity(
             "SELECT DATE_DIFF('DAY', CAST('2026-03-11 01:00:00' AS DATETIME), CAST('2026-03-10 23:00:00' AS DATETIME))"
         )
+
+    def test_join_hints(self):
+        for hint in ("BROADCAST", "SHUFFLE", "BUCKET", "COLOCATE", "UNREORDER"):
+            self.validate_identity(f"SELECT * FROM a JOIN [{hint}] b ON a.id = b.id")
+        self.validate_identity(
+            "SELECT * FROM a LEFT JOIN [broadcast] b ON a.id = b.id",
+            "SELECT * FROM a LEFT JOIN [BROADCAST] b ON a.id = b.id",
+        )
+        self.validate_identity(
+            "SELECT * FROM a JOIN [BROADCAST, UNREORDER] b USING (id) JOIN [SHUFFLE] c USING (id)"
+        )
+        self.validate_all(
+            "SELECT * FROM a JOIN [BROADCAST] b ON a.id = b.id",
+            write={"duckdb": "SELECT * FROM a JOIN b ON a.id = b.id"},
+        )

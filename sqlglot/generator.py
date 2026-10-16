@@ -366,6 +366,7 @@ class Generator:
 
     # Whether join hints should be generated
     JOIN_HINTS = True
+    JOIN_HINTS_IN_BRACKETS = False
 
     # Whether directed joins are supported
     DIRECTED_JOINS = False
@@ -2926,7 +2927,7 @@ class Generator:
                 "GLOBAL" if expression.args.get("global_") else None,
                 side,
                 expression.kind,
-                expression.hint if self.JOIN_HINTS else None,
+                expression.hint if self.JOIN_HINTS and not self.JOIN_HINTS_IN_BRACKETS else None,
                 "DIRECTED" if expression.args.get("directed") and self.DIRECTED_JOINS else None,
             )
             if op
@@ -2961,6 +2962,9 @@ class Generator:
 
         if op_sql != "STRAIGHT_JOIN":
             op_sql = f"{op_sql} JOIN" if op_sql else "JOIN"
+
+        if self.JOIN_HINTS and self.JOIN_HINTS_IN_BRACKETS and expression.hint:
+            op_sql = f"{op_sql} [{expression.hint}]"
 
         pivots = self.expressions(expression, key="pivots", sep="", flat=True)
         return f"{self.seg(op_sql)} {this_sql}{match_cond}{on_sql}{pivots}"
