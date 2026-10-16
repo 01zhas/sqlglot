@@ -644,3 +644,8 @@ class TestStarrocks(Validator):
             "SELECT * FROM t1 UNPIVOT(c FOR k IN (c1, c2))",
             write={"starrocks": UnsupportedError},
         )
+
+    def test_explain_styles(self):
+        for style in ("LOGICAL", "VERBOSE", "COSTS", "SCHEDULER", "ANALYZE"):
+            self.validate_identity(f"EXPLAIN {style} SELECT 1", f"DESCRIBE {style} SELECT 1")
+        self.validate_identity("DESCRIBE logical.t")

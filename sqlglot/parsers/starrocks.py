@@ -44,6 +44,7 @@ def _build_time_slice(args: list[exp.Expr]) -> exp.TimeSlice | None:
 class StarRocksParser(MySQLParser):
     # Unlike MySQL, dropping a column requires the COLUMN keyword
     ALTER_DROP_REQUIRES_COLUMN = True
+    DESCRIBE_STYLES = {*MySQLParser.DESCRIBE_STYLES, "LOGICAL", "VERBOSE", "COSTS", "SCHEDULER"}
 
     # StarRocks supports LEFT SEMI JOIN and LEFT ANTI JOIN natively
     # https://docs.starrocks.io/docs/sql-reference/sql-statements/table_bucket_part_index/SELECT/SELECT_JOIN/
