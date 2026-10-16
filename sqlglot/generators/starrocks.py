@@ -63,6 +63,7 @@ class StarRocksGenerator(MySQLGenerator):
     UPDATE_STATEMENT_SUPPORTS_FROM = True
     INSERT_OVERWRITE = " OVERWRITE"
     CAST_TO_INT_ROUNDS = False
+    TABLET_HINTS = True
 
     # StarRocks doesn't support "IS TRUE/FALSE" syntax.
     IS_BOOL_ALLOWED = False

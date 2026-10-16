@@ -372,6 +372,7 @@ class Generator:
 
     # Whether table hints should be generated
     TABLE_HINTS = True
+    TABLET_HINTS = False
 
     # Whether query hints should be generated
     QUERY_HINTS = True
@@ -2483,6 +2484,12 @@ class Generator:
         only = "ONLY " if expression.args.get("only") else ""
         partition = self.sql(expression, "partition")
         partition = f" {partition}" if partition else ""
+        tablets = ""
+        if expression.args.get("tablets"):
+            if self.TABLET_HINTS:
+                tablets = f" TABLET ({self.expressions(expression, key='tablets', flat=True)})"
+            else:
+                self.unsupported("TABLET selection is not supported")
         version = self.sql(expression, "version")
         version = f" {version}" if version else ""
         alias = self.sql(expression, "alias")
@@ -2543,7 +2550,7 @@ class Generator:
         else:
             indexed = ""
 
-        return f"{only}{table}{changes}{partition}{file_format}{pre_alias}{alias}{indexed}{hints}{pivots}{post_alias}{joins}{laterals}{ordinality}"
+        return f"{only}{table}{changes}{partition}{tablets}{file_format}{pre_alias}{alias}{indexed}{hints}{pivots}{post_alias}{joins}{laterals}{ordinality}"
 
     def tablefromrows_sql(self, expression: exp.TableFromRows) -> str:
         table = self.func("TABLE", expression.this)

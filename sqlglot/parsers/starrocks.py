@@ -243,3 +243,24 @@ class StarRocksParser(MySQLParser):
                 mode=mode,
             )
         )
+
+    def _parse_table_parts(
+        self,
+        schema: bool = False,
+        is_db_reference: bool = False,
+        wildcard: bool = False,
+        fast: bool = False,
+    ) -> exp.Table | exp.Dot | None:
+        table = super()._parse_table_parts(
+            schema=schema, is_db_reference=is_db_reference, wildcard=wildcard, fast=fast
+        )
+        if isinstance(table, exp.Table) and not schema and not is_db_reference:
+            if self._next.token_type == TokenType.L_PAREN and self._match(
+                TokenType.PARTITION, advance=False
+            ):
+                table.set("partition", self._parse_partition())
+            if self._next.token_type in (TokenType.L_PAREN, TokenType.NUMBER) and self._match_texts(
+                ("TABLET", "TABLETS")
+            ):
+                table.set("tablets", self._parse_wrapped_csv(self._parse_number, optional=True))
+        return table

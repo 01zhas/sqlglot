@@ -602,3 +602,19 @@ class TestStarrocks(Validator):
         self.validate_identity(
             "SELECT DATE_DIFF('DAY', CAST('2026-03-11 01:00:00' AS DATETIME), CAST('2026-03-10 23:00:00' AS DATETIME))"
         )
+
+    def test_tablets(self):
+        for sql in (
+            "SELECT * FROM t TABLET (1, 2)",
+            "SELECT * FROM t TABLET (1) AS x",
+            "SELECT * FROM t PARTITION(p1) TABLET (1, 2) AS x",
+            "SELECT tablet FROM tablet",
+            "SELECT * FROM t AS tablet",
+        ):
+            self.validate_identity(sql)
+        self.validate_identity("SELECT * FROM t TABLETS 1, 2", "SELECT * FROM t TABLET (1, 2)")
+        self.validate_identity("SELECT * FROM t tablet", "SELECT * FROM t AS tablet")
+        with self.assertRaises(UnsupportedError):
+            self.parse_one("SELECT * FROM t TABLET (1)").sql(
+                "duckdb", unsupported_level=ErrorLevel.RAISE
+            )
