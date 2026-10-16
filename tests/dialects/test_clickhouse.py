@@ -2302,3 +2302,16 @@ LIFETIME(MIN 0 MAX 0)""",
         self.validate_identity(
             "CREATE MATERIALIZED VIEW v REFRESH AS SELECT 1", check_command_warning=True
         ).assert_is(exp.Command)
+
+    def test_str_to_time_formats(self):
+        for safe, name in ((False, "parseDateTime"), (True, "parseDateTimeOrNull")):
+            expression = exp.StrToTime(
+                this=exp.column("s"),
+                format=exp.Literal.string("%Y-%m-%d %H:%M:%S %%"),
+                safe=safe,
+                zone=exp.Literal.string("UTC"),
+            )
+            self.assertEqual(
+                expression.sql("clickhouse"),
+                f"{name}(s, '%Y-%m-%d %H:%i:%s %%', 'UTC')",
+            )
