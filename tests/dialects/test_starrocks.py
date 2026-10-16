@@ -1,5 +1,6 @@
 from sqlglot import exp, parse_one
 from sqlglot.errors import ErrorLevel, ParseError, UnsupportedError
+from sqlglot.optimizer.annotate_types import annotate_types
 from tests.dialects.test_dialect import Validator
 
 
@@ -68,6 +69,28 @@ class TestStarrocks(Validator):
             parse_one("SELECT FILTER(a, (x, i) -> i > 0)", read="spark").sql(
                 "starrocks", unsupported_level=ErrorLevel.RAISE
             )
+
+    def test_array_filter_types(self):
+        for sql in (
+            "SELECT ARRAY_FILTER(x -> x > 1, t.a) FROM t",
+            "SELECT ARRAY_FILTER(x -> x > 1, ARRAY_FILTER(x -> x > 0, t.a)) FROM t",
+            "SELECT ARRAY_FILTER(t.a, t.mask) FROM t",
+            "SELECT ARRAY_FILTER(x -> x > 1, CAST([] AS ARRAY<INT>))",
+            "SELECT ARRAY_FILTER(x -> x > 1, CAST(NULL AS ARRAY<INT>))",
+        ):
+            with self.subTest(sql=sql):
+                expression = annotate_types(
+                    parse_one(sql, read="starrocks"),
+                    dialect="starrocks",
+                    schema={"t": {"a": "ARRAY<INT>", "mask": "ARRAY<BOOLEAN>"}},
+                )
+                self.assertEqual(expression.selects[0].type, exp.DataType.build("ARRAY<INT>"))
+
+        expression = annotate_types(
+            parse_one("SELECT ARRAY_FILTER(x -> x > 1, t.a) FROM t", read="starrocks"),
+            dialect="starrocks",
+        )
+        self.assertTrue(expression.selects[0].is_type(exp.DType.UNKNOWN))
 
     def test_min_max_by(self):
         # StarRocks has MIN_BY/MAX_BY, but no ARG_MIN/ARG_MAX

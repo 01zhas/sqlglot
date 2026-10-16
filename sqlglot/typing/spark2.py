@@ -62,7 +62,6 @@ EXPRESSION_METADATA: ExprMetadataType = {
     **{
         expr_type: {"annotator": lambda self, e: self._annotate_by_args(e, "this")}
         for expr_type in {
-            exp.ArrayFilter,
             exp.Shuffle,
             exp.Substring,
         }

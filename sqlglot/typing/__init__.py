@@ -325,6 +325,7 @@ EXPRESSION_METADATA: ExprMetadataType = {
             exp.Abs,
             exp.AnyValue,
             exp.ArrayConcatAgg,
+            exp.ArrayFilter,
             exp.ArrayReverse,
             exp.ArraySlice,
             exp.Filter,
