@@ -26,6 +26,9 @@ class StarRocks(MySQL):
             "HLL": TokenType.HLLSKETCH,
             "LARGEINT": TokenType.INT128,
             "REFRESH": TokenType.REFRESH,
+            "ADMIN": TokenType.COMMAND,
+            "SUBMIT": TokenType.COMMAND,
+            "CANCEL": TokenType.COMMAND,
         }
         KEYWORDS.pop("IGNORE")
 

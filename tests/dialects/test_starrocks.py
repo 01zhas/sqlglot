@@ -602,3 +602,12 @@ class TestStarrocks(Validator):
         self.validate_identity(
             "SELECT DATE_DIFF('DAY', CAST('2026-03-11 01:00:00' AS DATETIME), CAST('2026-03-10 23:00:00' AS DATETIME))"
         )
+
+    def test_admin_commands(self):
+        for sql in (
+            "SUBMIT TASK t AS INSERT INTO a SELECT 1",
+            'ADMIN SET FRONTEND CONFIG ("k"="v")',
+            "CANCEL DECOMMISSION BACKEND '10.0.0.1:9050'",
+        ):
+            self.validate_identity(sql).assert_is(exp.Command)
+        self.validate_identity("SELECT admin, submit, cancel FROM t")
