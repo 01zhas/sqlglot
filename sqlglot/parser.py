@@ -3602,7 +3602,10 @@ class Parser:
     def _parse_describe(self) -> exp.Describe:
         kind = self._prev.text if self._match_set(self.CREATABLES) else None
         style: str | None = (
-            self._prev.text.upper() if self._match_texts(self.DESCRIBE_STYLES) else None
+            self._prev.text.upper()
+            if self._next.token_type != TokenType.SENTINEL
+            and self._match_texts(self.DESCRIBE_STYLES)
+            else None
         )
         if self._match(TokenType.DOT):
             style = None

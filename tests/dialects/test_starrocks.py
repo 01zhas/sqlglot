@@ -648,4 +648,7 @@ class TestStarrocks(Validator):
     def test_explain_styles(self):
         for style in ("LOGICAL", "VERBOSE", "COSTS", "SCHEDULER", "ANALYZE"):
             self.validate_identity(f"EXPLAIN {style} SELECT 1", f"DESCRIBE {style} SELECT 1")
+            name = style if style == "ANALYZE" else style.lower()
+            self.validate_identity(f"DESCRIBE {style.lower()}", f"DESCRIBE {name}")
+            self.validate_identity(f"DESCRIBE TABLE {style.lower()}", f"DESCRIBE {name}")
         self.validate_identity("DESCRIBE logical.t")
