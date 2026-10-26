@@ -158,6 +158,25 @@ class StarRocksParser(MySQLParser):
         return create
 
     def _parse_bracket(self, this: exp.Expr | None = None) -> exp.Expr | None:
+        if (
+            isinstance(this, exp.DataType)
+            and this.is_type(exp.DType.MAP)
+            and self._match(TokenType.L_BRACE)
+        ):
+            entries = self._kv_to_prop_eq(
+                self._parse_csv(lambda: self._parse_bracket_key_value(is_map=True)),
+                parse_map=True,
+            )
+            if not self._match(TokenType.R_BRACE):
+                self.raise_error("Expected }")
+            literal = self.expression(
+                exp.Map(
+                    keys=exp.array(*(e.this for e in entries), copy=False),
+                    values=exp.array(*(e.expression for e in entries), copy=False),
+                )
+            )
+            return self._parse_bracket(exp.cast(literal, this, copy=False))
+
         # map{key: value, ...}
         # https://docs.starrocks.io/docs/sql-reference/data-types/semi_structured/Map/
         is_map_literal = (

@@ -717,3 +717,27 @@ class TestStarrocks(Validator):
                 "duckdb": "SELECT MAP {k: v}['a'] FROM (SELECT 'a' AS k, 10 AS v) AS t",
             },
         )
+
+    def test_typed_map_literal(self):
+        for sql, expected in (
+            ("MAP<INT, INT>{'12': '100'}", "CAST(MAP('12', '100') AS MAP<INT, INT>)"),
+            ("MAP<INT, INT>{}", "CAST(MAP() AS MAP<INT, INT>)"),
+            ("MAP<INT, INT>{1: NULL}", "CAST(MAP(1, NULL) AS MAP<INT, INT>)"),
+            ("MAP<INT, INT>{1 + 1: 3}[2]", "CAST(MAP(1 + 1, 3) AS MAP<INT, INT>)[2]"),
+            ("MAP<INT, INT>{k: v}", "CAST(MAP(k, v) AS MAP<INT, INT>)"),
+            (
+                "MAP<INT, MAP<INT, INT>>{1: MAP<INT, INT>{2: 3}}[1][2]",
+                "CAST(MAP(1, CAST(MAP(2, 3) AS MAP<INT, INT>)) AS MAP<INT, MAP<INT, INT>>)[1][2]",
+            ),
+        ):
+            with self.subTest(sql=sql):
+                expression = self.validate_identity(f"SELECT {sql}", f"SELECT {expected}")
+                self.assertIsInstance(expression.find(exp.Cast).to, exp.DataType)
+
+        self.validate_all(
+            "SELECT MAP<INT, INT>{k: v}[1] FROM t",
+            write={
+                "starrocks": "SELECT CAST(MAP(k, v) AS MAP<INT, INT>)[1] FROM t",
+                "duckdb": "SELECT CAST(MAP([k], [v]) AS MAP(INT, INT))[1] FROM t",
+            },
+        )
