@@ -1,4 +1,4 @@
-from sqlglot import exp
+from sqlglot import exp, parse_one
 from sqlglot.errors import ErrorLevel, ParseError, UnsupportedError
 from tests.dialects.test_dialect import Validator
 
@@ -717,3 +717,27 @@ class TestStarrocks(Validator):
                 "duckdb": "SELECT MAP {k: v}['a'] FROM (SELECT 'a' AS k, 10 AS v) AS t",
             },
         )
+
+    def test_add_months_end_of_month(self):
+        expected = (
+            "SELECT CASE WHEN DAY(d) = DAY(LAST_DAY(d)) THEN "
+            "DATE_ADD(DATE_ADD(d, INTERVAL 1 MONTH), INTERVAL "
+            "(DAY(LAST_DAY(DATE_ADD(d, INTERVAL 1 MONTH))) - "
+            "DAY(DATE_ADD(d, INTERVAL 1 MONTH))) DAY) "
+            "ELSE DATE_ADD(d, INTERVAL 1 MONTH) END FROM t"
+        )
+        self.validate_all(
+            expected,
+            read={
+                "oracle": "SELECT ADD_MONTHS(d, 1) FROM t",
+                "snowflake": "SELECT ADD_MONTHS(d, 1) FROM t",
+            },
+        )
+        self.validate_identity("SELECT ADD_MONTHS(d, 1) FROM t")
+        self.validate_identity("SELECT ADD_MONTHS(d, -1) FROM t")
+
+        for sql in ("ADD_MONTHS(d, RAND())", "ADD_MONTHS(UUID(), 1)"):
+            expression = parse_one(sql, read="starrocks")
+            expression.set("preserve_end_of_month", True)
+            with self.assertRaises(UnsupportedError):
+                expression.sql("starrocks", unsupported_level=ErrorLevel.RAISE)

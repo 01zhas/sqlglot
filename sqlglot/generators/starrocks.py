@@ -431,3 +431,32 @@ class StarRocksGenerator(MySQLGenerator):
         kind = expression.text("kind").upper()
         boundary = exp.var("CEIL" if kind == "END" else "FLOOR") if kind else None
         return self.func("TIME_SLICE", expression.this, interval, boundary)
+
+    def addmonths_sql(self, expression: exp.AddMonths) -> str:
+        if not expression.args.get("preserve_end_of_month"):
+            return self.func("ADD_MONTHS", expression.this, expression.expression)
+
+        if expression.find(exp.Rand, exp.Uuid):
+            self.unsupported("Preserving ADD_MONTHS month-end semantics repeats volatile arguments")
+            return self.func("ADD_MONTHS", expression.this, expression.expression)
+
+        # Move by the remaining days instead of returning LAST_DAY, which would drop the time.
+        result = exp.DateAdd(
+            this=expression.this.copy(),
+            expression=expression.expression.copy(),
+            unit=exp.var("MONTH"),
+        )
+        end = exp.LastDay(this=result.copy())
+        remaining = exp.Sub(this=exp.Day(this=end), expression=exp.Day(this=result.copy()))
+        adjusted = exp.DateAdd(this=result.copy(), expression=remaining, unit=exp.var("DAY"))
+        return self.sql(
+            exp.case()
+            .when(
+                exp.EQ(
+                    this=exp.Day(this=expression.this.copy()),
+                    expression=exp.Day(this=exp.LastDay(this=expression.this.copy())),
+                ),
+                adjusted,
+            )
+            .else_(result)
+        )
